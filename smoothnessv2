@@ -1,249 +1,471 @@
-if not game:IsLoaded() then
-    game.Loaded:Wait()
-end
-local Players, Client, Mouse, RS, Camera =
-    game:GetService("Players"),
-    game:GetService("Players").LocalPlayer,
-    game:GetService("Players").LocalPlayer:GetMouse(),
-    game:GetService("RunService"),
-    game.Workspace.CurrentCamera
-local players = game:GetService("Players")
-local mouse = game:GetService("Players").LocalPlayer:GetMouse()
-
-local Circle = Drawing.new("Circle")
-Circle.Color = Color3.new(1, 1, 1)
-Circle.Thickness = 1
-local UpdateFOV = function()
-    if (not Circle) then
-        return Circle
-    end
-
-    Circle.Visible = Delusion.FOV["Visible"]
-    Circle.Filled = Delusion.FOV["Filled"]
-    Circle.Radius = Delusion.FOV["Radius"] * 3
-    Circle.Position = Vector2.new(Mouse.X, Mouse.Y + (game:GetService("GuiService"):GetGuiInset().Y))
-
-    if Delusion.FOV.Rainbow == true then
-        local hue = tick() % 5 / 5
-        Circle.Color = Color3.fromHSV(hue, 1, 1)
-    else
-        Circle.Color = Color3.new(0, 255, 255)
-    end
-
-    return Circle
-end
-
-RS.Heartbeat:Connect(UpdateFOV)
-
-ClosestPlrFromMouse = function()
-    local Target, Closest = nil, 1 / 0
-
-    for _, v in pairs(Players:GetPlayers()) do
-        if (v.Character and v ~= Client and v.Character:FindFirstChild("HumanoidRootPart")) then
-            local Position, OnScreen = Camera:WorldToScreenPoint(v.Character.HumanoidRootPart.Position)
-            local Distance = (Vector2.new(Position.X, Position.Y) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
-
-            if (Circle.Radius > Distance and Distance < Closest and OnScreen) then
-                Closest = Distance
-                Target = v
-            end
+    if smothnes.IntroSettings.Intro then 
+        local cam = workspace.CurrentCamera
+        local x = cam.ViewportSize.X
+        local y = cam.ViewportSize.Y
+        local newx = math.floor(x * 0.5)
+        local newy = math.floor(y * 0.5)
+        local SplashScreen = Instance.new("ScreenGui")
+        local Image = Instance.new("ImageLabel")
+        SplashScreen.Name = "SplashScreen"
+        SplashScreen.Parent = game.CoreGui
+        SplashScreen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    
+        Image.Name = "Image"
+        Image.Parent = SplashScreen
+        Image.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        Image.BackgroundTransparency = 1
+        Image.Position = UDim2.new(0, newx, 0, newy)
+        Image.Size = UDim2.new(0, 825, 0, 377)
+        Image.Image = smothnes.IntroSettings.IntroID
+        Image.ImageTransparency = 1
+        Image.AnchorPoint = Vector2.new(0.5, 0.5)
+    
+        local Blur = Instance.new("BlurEffect")
+        Blur.Parent = game.Lighting
+        Blur.Size = 0
+        Blur.Name = "IntroBlur"
+    
+        local function gui(element, properties, duration, easingStyle, easingDirection)
+            local tweenInfo = TweenInfo.new(duration or 1, easingStyle or Enum.EasingStyle.Sine, easingDirection or Enum.EasingDirection.InOut)
+            local tween = game:GetService("TweenService"):Create(element, tweenInfo, properties)
+            tween:Play()
+            return tween
         end
+    
+        gui(Image, {ImageTransparency = 0}, 0.3) 
+        gui(Blur, {Size = 20}, 0.3)              
+        wait(3)                                  
+        gui(Image, {ImageTransparency = 1}, 0.3)  
+        gui(Blur, {Size = 0}, 0.3)            
+        wait(0.3)                               
     end
-    return Target
-end
+    
+    wait(0.5)
 
-local WTS = function(Object)
-    local ObjectVector = Camera:WorldToScreenPoint(Object.Position)
-    return Vector2.new(ObjectVector.X, ObjectVector.Y)
-end
+if (not getgenv().Loaded) then
+local userInputService = game:GetService("UserInputService")
 
-local IsOnScreen = function(Object)
-    local IsOnScreen = Camera:WorldToScreenPoint(Object.Position)
-    return IsOnScreen
-end
-
-local FilterObjs = function(Object)
-    if string.find(Object.Name, "Gun") then
-        return
-    end
-    if table.find({"Part", "MeshPart", "BasePart"}, Object.ClassName) then
+local function CheckAnti(Plr) -- // Anti-aim detection
+    if Plr.Character.HumanoidRootPart.Velocity.Y < -70 then
         return true
+    elseif Plr and (Plr.Character.HumanoidRootPart.Velocity.X > 450 or Plr.Character.HumanoidRootPart.Velocity.X < -35) then
+        return true
+    elseif Plr and Plr.Character.HumanoidRootPart.Velocity.Y > 60 then
+        return true
+    elseif Plr and (Plr.Character.HumanoidRootPart.Velocity.Z > 35 or Plr.Character.HumanoidRootPart.Velocity.Z < -35) then
+        return true
+    else
+        return false
     end
 end
 
-local GetClosestBodyPart = function(character)
-    local ClosestDistance = 1 / 0
-    local BodyPart = nil
-    if (character and character:GetChildren()) then
-        for _, x in next, character:GetChildren() do
-            if FilterObjs(x) and IsOnScreen(x) then
-                local Distance = (WTS(x) - Vector2.new(Mouse.X, Mouse.Y)).Magnitude
-                if (Circle.Radius > Distance and Distance < ClosestDistance) then
-                    ClosestDistance = Distance
-                    BodyPart = x
-                end
-            end
-        end
-    end
-    return BodyPart
-end
-local Prey
-
-task.spawn(
-    function()
-        while task.wait() do
-            if Prey then
-                if Delusion.Silent.Enabled and Delusion.Silent.NearestPoint == true then
-                    Delusion.Silent["Part"] = tostring(GetClosestBodyPart(Prey.Character))
-                end
-            end
-        end
-    end
-)
-
-local grmt = getrawmetatable(game)
-local backupindex = grmt.__index
-setreadonly(grmt, false)
-
-grmt.__index =
-    newcclosure(
-    function(self, v)
-        if (Delusion.Silent.Enabled and Mouse and tostring(v) == "Hit") then
-            Prey = ClosestPlrFromMouse()
-
-            if Prey then
-                local endpoint =
-                    game.Players[tostring(Prey)].Character[Delusion.Silent["Part"]].CFrame +
-                    (game.Players[tostring(Prey)].Character[Delusion.Silent["Part"]].Velocity *
-                        Delusion.Silent.PredictionAmount)
-                return (tostring(v) == "Hit" and endpoint)
-            end
-        end
-        return backupindex(self, v)
-    end
-)
-
-if getgenv().Delusion.Resolver.AntiAimViewer == true then
-    local d = 1000
-    local bama = nil
-    local vec2 = nil
-
-    for _, player in pairs(players:GetPlayers()) do
-        if
-            player ~= players.LocalPlayer and player.Character and player.Character:FindFirstChild("Head") and
-                player.Character:FindFirstChild("HumanoidRootPart")
-         then
-            local cam = workspace.CurrentCamera:WorldToViewportPoint(player.Character.PrimaryPart.Position)
-            local vector = (Vector2.new(mouse.X, mouse.Y) - Vector2.new(cam.X, cam.Y)).Magnitude
-            if vector > d then
-                bama = player
-                vec2 = vector
-            end
-        end
-    end
-    return bama
-end
-if
-    getgenv().Delusion.Resolver.AntiGroundShots == true and
-        Prey.Character:FindFirstChild("Humanoid") == Enum.HumanoidStateType.Freefall
- then
-    pcall(
-        function()
-            local TargetVelv5 = targ.Character[getgenv().partlol]
-            TargetVelv5.Velocity =
-                Vector3.new(TargetVelv5.Velocity.X, (TargetVelv5.Velocity.Y * 5), TargetVelv5.Velocity.Z)
-            TargetVelv5.AssemblyLinearVelocity =
-                Vector3.new(TargetVelv5.Velocity.X, (TargetVelv5.Velocity.Y * 5), TargetVelv5.Velocity.Z)
-        end
-    )
-end
-if getgenv().Delusion.Resolver.Enabled == true then
-    pcall(
-        function()
-            local TargetVelv2 = Prey.Character.HumanoidRootPart
-            TargetVelv2.Velocity = Vector3.new(TargetVelv2.Velocity.X, 0, TargetVelv2.Velocity.Z)
-            TargetVelv2.AssemblyLinearVelocity = Vector3.new(TargetVelv2.Velocity.X, 0, TargetVelv2.Velocity.Z)
-        end
-    )
-end
-if getgenv().Delusion.AutoSilentPrediction.Enabled == true then
-    local pingvalue = game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValueString()
-    local split = string.split(pingvalue, "(")
-    local ping = tonumber(split[1])
-    if ping < 150 then
-        getgenv().Delusion.Silent.PredictionAmount = getgenv().Delusion.AutoSilentPrediction.Amount_150
-    elseif ping < 140 then
-        getgenv().Delusion.Silent.PredictionAmount = getgenv().Delusion.AutoSilentPrediction.Amount_140
-    elseif ping < 130 then
-        getgenv().Delusion.Silent.PredictionAmount = getgenv().Delusion.AutoSilentPrediction.Amount_130
-    elseif ping < 120 then
-        getgenv().Delusion.Silent.PredictionAmount = getgenv().Delusion.AutoSilentPrediction.Amount_120
-    elseif ping < 110 then
-        getgenv().Delusion.Silent.PredictionAmount = getgenv().Delusion.AutoSilentPrediction.Amount_110
-    elseif ping < 100 then
-        getgenv().Delusion.Silent.PredictionAmount = getgenv().Delusion.AutoSilentPrediction.Amount_100
-    elseif ping < 90 then
-        getgenv().Delusion.Silent.PredictionAmount = getgenv().Delusion.AutoSilentPrediction.Amount_90
-    elseif ping < 80 then
-        getgenv().Delusion.Silent.PredictionAmount = getgenv().Delusion.AutoSilentPrediction.Amount_80
-    elseif ping < 70 then
-        getgenv().Delusion.Silent.PredictionAmount = getgenv().Delusion.AutoSilentPrediction.Amount_70
-    elseif ping < 60 then
-        getgenv().Delusion.Silent.PredictionAmount = getgenv().Delusion.AutoSilentPrediction.Amount_60
-    elseif ping < 50 then
-        getgenv().Delusion.Silent.PredictionAmount = getgenv().Delusion.AutoSilentPrediction.Amount_50
+local function getnamecall()
+    if game.PlaceId == 2788229376 or game.PlaceId == 7213786345 or game.PlaceId == 16033173781 or game.PlaceId == 16158576873 then 
+        return "UpdateMousePosI2"
+    elseif game.PlaceId == 5602055394 or game.PlaceId == 7951883376 then
+        return "MousePos"
+    elseif game.PlaceId == 9825515356 then
+        return "GetMousePos"
     end
 end
-if getgenv().Delusion.Checks.Wall_Check then
-    local Origin = Camera.CFrame.p
-    local CheckRay = Ray.new(Origin, destination - Origin)
-    local Hit = game.workspace:FindPartOnRayWithIgnoreList(CheckRay, ignore)
-    return Hit == nil
-else
-    return true
-end
-if getgenv().Delusion.Checks.Crew_Check == true then
-    while true do
-        local newPlayer = game.Players.PlayerAdded:wait()
-        if player:IsInGroup(newPlayer.Group) then
-            table.insert(Ignored.Players, newPlayer)
+
+function MainEventLocate()
+    for _,v in pairs(game:GetService("ReplicatedStorage"):GetDescendants()) do
+        if v.Name == "MainEvent" then
+            return v
         end
     end
 end
-Mouse.KeyDown:Connect(function(Key)
-    local Keybind = getgenv().Delusion.Tracer.Key:lower()
-    if (Key == Keybind) then
-        if getgenv().Delusion.Tracer.Enabled == true then
-            IsTargetting = not IsTargetting
-            if IsTargetting then
-                Plr = GetClosest()
-            else
-                if Plr ~= nil then
+
+
+local ReplicatedStorage   = game:GetService("ReplicatedStorage")
+local MainEvent           = ReplicatedStorage:FindFirstChild("MainEvent")
+
+
+local Locking = false
+local Players = game:GetService("Players")
+local Client = Players.LocalPlayer
+local Plr = nil -- Initialize Plr here
+
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+local SpeedGlitch = false
+local Mouse = game.Players.LocalPlayer:GetMouse()
+
+
+UserInputService.InputBegan:Connect(OnKeyPress)
+
+UserInputService.InputBegan:Connect(function(keygo, ok)
+    if (not ok) then
+        if (keygo.KeyCode == getgenv().smothnes.Combat.Keybind) then
+            Locking = not Locking
+            if Locking then
+                Plr = getClosestPlayerToCursor()
+            elseif not Locking then
+                if Plr then
                     Plr = nil
                 end
             end
         end
     end
 end)
-game.RunService.Heartbeat:Connect(function()
-        if getgenv().Delusion.Misc.Shake then
-            local Main = CFrame.new(Camera.CFrame.p,Plr.Character[Delusion.Tracer.Aimpart].Position + Plr.Character[Delusion.Tracer.Aimpart].Velocity * getgenv().Delusion.Tracer.Prediction +
-            Vector3.new(
-                math.random(-getgenv().Delusion.Misc.ShakeValue, getgenv().Delusion.Misc.ShakeValue),
-                math.random(-getgenv().Delusion.Misc.ShakeValue, getgenv().Delusion.Misc.ShakeValue),
-                math.random(-getgenv().Delusion.Misc.ShakeValue, getgenv().Delusion.Misc.ShakeValue)
-            ) * 0.1)
-            Camera.CFrame = Camera.CFrame:Lerp(Main, getgenv().Delusion.Tracer.Smoothness, Enum.EasingStyle.Elastic, Enum.EasingDirection.InOut, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
-        else
-            local Main = CFrame.new(Camera.CFrame.p,Plr.Character[getgenv().Delusion.Tracer.Aimpart].Position + Plr.Character[Delusion.Tracer.Aimpart].Velocity * getgenv().Delusion.Tracer.Prediction)
-            Camera.CFrame = Camera.CFrame:Lerp(Main, getgenv().Delusion.Tracer.Smoothness, Enum.EasingStyle.Elastic, Enum.EasingDirection.InOut, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+
+function getClosestPlayerToCursor()
+    local closestDist = math.huge
+    local closestPlr = nil
+    for _, v in ipairs(Players:GetPlayers()) do
+        if v ~= Client and v.Character and v.Character:FindFirstChild("Humanoid") and v.Character.Humanoid.Health > 0 then
+            local screenPos, cameraVisible = workspace.CurrentCamera:WorldToViewportPoint(v.Character.HumanoidRootPart.Position)
+            if cameraVisible then
+                local distToMouse = (Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                if distToMouse < closestDist then
+                    closestPlr = v
+                    closestDist = distToMouse
+                end
+            end
         end
+    end
+    return closestPlr
+end
+
+function getClosestPartToCursor(Player)
+    local closestPart, closestDist = nil, math.huge
+    if Player.Character and Player.Character:FindFirstChild("Humanoid") and Player.Character:FindFirstChild("Head") and Player.Character.Humanoid.Health ~= 0 and Player.Character:FindFirstChild("HumanoidRootPart") then
+        for i, part in pairs(Player.Character:GetChildren()) do
+            if part:IsA("BasePart") then
+                local screenPos, cameraVisible = workspace.CurrentCamera:WorldToViewportPoint(part.Position)
+                local distToMouse = (Vector2.new(UserInputService:GetMouseLocation().X, UserInputService:GetMouseLocation().Y) - Vector2.new(screenPos.X, screenPos.Y)).Magnitude
+                if distToMouse < closestDist and table.find(getgenv().smothnes.Combat.MultipleTargetPart, part.Name) then
+                    closestPart = part
+                    closestDist = distToMouse
+                end
+            end
+        end
+        return closestPart
+    end
+end
+
+
+local function getVelocity(Player)
+    local Old = Player.Character.HumanoidRootPart.Position
+    wait(0.145)
+    local Current = Player.Character.HumanoidRootPart.Position
+    return (Current - Old) / 0.145
+end
+
+local function GetShakedVector3(Setting)
+    return Vector3.new(math.random(-Setting * 1e9, Setting * 1e9), math.random(-Setting * 1e9, Setting * 1e9), math.random(-Setting * 1e9, Setting * 1e9)) / 1e9;
+end
+
+local v = nil
+game:GetService("RunService").Heartbeat:Connect(function(deltaTime)
+    if Plr ~= nil and Plr.Character and Plr.Character:FindFirstChild("HumanoidRootPart") then
+        v = getVelocity(Plr)
+    end
 end)
 
-task.spawn(function()
-    while task.wait() do
-        if getgenv().Delusion.Tracer.Enabled and Plr ~= nil and (Plr.Character) then
-            getgenv().Delusion.Tracer.Aimpart = tostring(GetNearestPartToCursorOnCharacter(Plr.Character))
+local mainevent = game:GetService("ReplicatedStorage").MainEvent
+
+Client.Character.ChildAdded:Connect(function(child)
+    if child:IsA("Tool") and child:FindFirstChild("MaxAmmo") then
+        child.Activated:Connect(function()
+            if Plr and Plr.Character then
+                local Position = Plr.Character.Humanoid:GetState() == Enum.HumanoidStateType.Freefall and Plr.Character[getgenv().smothnes.Combat.Part].Position + Vector3.new(0, getgenv().smothnes.Offsets.JumpOffset, 0) or Plr.Character[getgenv().smothnes.Combat.Part].Position
+                if not CheckAnti(Plr) then
+                    mainevent:FireServer("UpdateMousePosI2", Position + ((Plr.Character.HumanoidRootPart.Velocity) * getgenv().smothnes.Silent.Prediction))
+                else
+                    mainevent:FireServer("UpdateMousePosI2", Position + ((Plr.Character.Humanoid.MoveDirection * Plr.Character.Humanoid.WalkSpeed) * getgenv().smothnes.Silent.Prediction))
+                end
+            end
+        end)
+    end
+end)
+
+Client.CharacterAdded:Connect(function(character)
+    character.ChildAdded:Connect(function(child)
+        if child:IsA("Tool") and child:FindFirstChild("MaxAmmo") then
+            child.Activated:Connect(function()
+                if Plr and Plr.Character then
+                    local Position = Plr.Character.Humanoid:GetState() == Enum.HumanoidStateType.Freefall and Plr.Character[getgenv().smothnes.Combat.Part].Position + Vector3.new(0, getgenv().smothnes.Offsets.JumpOffset, 0) or Plr.Character[getgenv().smothnes.Combat.Part].Position
+                    if not CheckAnti(Plr) then
+                        mainevent:FireServer("UpdateMousePosI2", Position + ((Plr.Character.HumanoidRootPart.Velocity) * getgenv().smothnes.Silent.Silent.Prediction))
+                    else
+                        mainevent:FireServer("UpdateMousePosI2", Position + ((Plr.Character.Humanoid.MoveDirection * Plr.Character.Humanoid.WalkSpeed) * getgenv().smothnes.Silent.Prediction))
+                    end
+                end
+            end)
+        end
+    end)
+end)
+
+local RunService = game:GetService("RunService")
+
+RunService.RenderStepped:Connect(function()
+    if Plr and Plr.Character then
+        local humanoid = Plr.Character:FindFirstChild("Humanoid")
+        local targetPart = Plr.Character:FindFirstChild(getgenv().smothnes.Combat.Part)
+        
+        if humanoid and targetPart then
+      
+            local Position = (humanoid:GetState() == Enum.HumanoidStateType.Freefall)
+                and targetPart.Position + Vector3.new(0, getgenv().smothnes.Offsets.JumpOffset, 0)
+                or targetPart.Position
+            
+            local Main
+            if not CheckAnti(Plr) then
+                Main = CFrame.new(
+                    workspace.CurrentCamera.CFrame.p,
+                    Position + ((Plr.Character.HumanoidRootPart.Velocity) * getgenv().smothnes.Silent.Prediction) 
+                    + GetShakedVector3(getgenv().smothnes.Shake.CameraShake)
+                )
+            else
+                Main = CFrame.new(
+                    workspace.CurrentCamera.CFrame.p,
+                    Position + ((Plr.Character.Humanoid.MoveDirection * Plr.Character.Humanoid.WalkSpeed) * getgenv().smothnes.Silent.Prediction) 
+                    + GetShakedVector3(getgenv().smothnes.Shake.CameraShake)
+                )
+            end
+
+            workspace.CurrentCamera.CFrame = workspace.CurrentCamera.CFrame:Lerp(
+                Main, getgenv().smothnes.Smoothness.Amount, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut
+            )
+        end
+    end
+
+    if getgenv().smothnes.Checks.CheckKoStatus and Plr and Plr.Character then
+        local bodyEffects = Plr.Character:FindFirstChild("BodyEffects")
+        local humanoid = Plr.Character:FindFirstChild("Humanoid")
+        local koValue = bodyEffects and bodyEffects:FindFirstChild("K.O")
+
+        if humanoid and (humanoid.Health < 1 or (koValue and koValue.Value) or Plr.Character:FindFirstChild("GRABBING_CONSTRAINT")) then
+            if Locking then
+                Plr = nil
+                Locking = false
+            end
+        end
+    end
+
+    if getgenv().smothnes.Checks.TargetDeath and Plr and Plr.Character:FindFirstChild("Humanoid") then
+        if Plr.Character.Humanoid.Health < 1 and Locking then
+            Plr = nil
+            Locking = false
+        end
+    end
+
+    local clientHumanoid = Client.Character and Client.Character:FindFirstChild("Humanoid")
+    if getgenv().smothnes.Checks.PlayerDeath and clientHumanoid and clientHumanoid.Health < 1 and Locking then
+        Plr = nil
+        Locking = false
+    end
+end)
+
+
+if getgenv().smothnes.Esp.Chams == true then
+
+local UserInputService = game:GetService("UserInputService")
+local ToggleKey = getgenv().smothnes.Esp.Key
+
+local FillColor = getgenv().smothnes.Esp.Color
+local DepthMode = "AlwaysOnTop"
+local FillTransparency = 0.5
+local OutlineColor = getgenv().smothnes.Esp.Outline
+local OutlineTransparency = 0
+
+local CoreGui = game:GetService("CoreGui")
+local Players = game:GetService("Players")
+local lp = Players.LocalPlayer
+local connections = {}
+
+local Storage = Instance.new("Folder")
+Storage.Parent = CoreGui
+Storage.Name = "Highlight_Storage"
+
+local isEnabled = false
+
+local function Highlight(plr)
+    local Highlight = Instance.new("Highlight")
+    Highlight.Name = plr.Name
+    Highlight.FillColor = FillColor
+    Highlight.DepthMode = DepthMode
+    Highlight.FillTransparency = FillTransparency
+    Highlight.OutlineColor = OutlineColor
+    Highlight.OutlineTransparency = 0
+    Highlight.Parent = Storage
+    
+    local plrchar = plr.Character
+    if plrchar then
+        Highlight.Adornee = plrchar
+    end
+
+    connections[plr] = plr.CharacterAdded:Connect(function(char)
+        Highlight.Adornee = char
+    end)
+end
+
+local function EnableHighlight()
+    isEnabled = true
+    for _, player in ipairs(Players:GetPlayers()) do
+        Highlight(player)
+    end
+end
+
+local function DisableHighlight()
+    isEnabled = false
+    for _, highlight in ipairs(Storage:GetChildren()) do
+        highlight:Destroy()
+    end
+    for _, connection in pairs(connections) do
+        connection:Disconnect()
+    end
+end
+
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == ToggleKey then
+        if isEnabled then
+            DisableHighlight()
+        else
+            EnableHighlight()
         end
     end
 end)
+
+Players.PlayerAdded:Connect(function(player)
+    if isEnabled then
+        Highlight(player)
+    end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+    local highlight = Storage:FindFirstChild(player.Name)
+    if highlight then
+        highlight:Destroy()
+    end
+    local connection = connections[player]
+    if connection then
+        connection:Disconnect()
+    end
+end)
+
+
+if isEnabled then
+    EnableHighlight()
+end
+end
+
+
+if getgenv().smothnes.Spin.Enabled == true then
+    -- 360 made by @fwedsw
+    local Players = game:GetService("Players")
+    local UserInputService = game:GetService("UserInputService")
+    local RunService = game:GetService("RunService")
+    local Camera = workspace.CurrentCamera
+    local Toggle = getgenv().smothnes.Spin.Enabled
+    local RotationSpeed = getgenv().smothnes.Spin.SpinSpeed
+    local Keybind = getgenv().smothnes.Spin.Keybind
+    
+    local function OnKeyPress(Input, GameProcessedEvent)
+        if Input.KeyCode == Keybind and not GameProcessedEvent then 
+            Toggle = not Toggle
+        end
+    end
+    
+    UserInputService.InputBegan:Connect(OnKeyPress)
+    
+    local LastRenderTime = 0
+    local TotalRotation = 0
+    -- 360 made by @fwedsw
+    local function RotateCamera()
+        if Toggle then
+            local CurrentTime = tick()
+            local TimeDelta = math.min(CurrentTime - LastRenderTime, 0.01)
+            LastRenderTime = CurrentTime
+    
+            local RotationAngle = RotationSpeed * TimeDelta
+            local Rotation = CFrame.fromAxisAngle(Vector3.new(0, 1, 0), math.rad(RotationAngle))
+            Camera.CFrame = Camera.CFrame * Rotation
+            -- 360 made by @fwedsw
+            TotalRotation = TotalRotation + RotationAngle
+            if TotalRotation >= getgenv().smothnes.Spin.Degrees then 
+                Toggle = false
+                TotalRotation = 0
+            end
+        end
+    end
+    
+    RunService.RenderStepped:Connect(RotateCamera)
+    end
+
+        if getgenv().smothnes.Textures.Enabled then
+        for _, v in pairs(game:GetService("Workspace"):GetDescendants()) do
+            if v:IsA("BasePart") and not v.Parent:FindFirstChild("Humanoid") then
+                v.Material = getgenv().smothnes.Textures.Material
+                v.Color = getgenv().smothnes.Textures.Color
+                if v:IsA("Texture") then
+                    v:Destroy()
+                end
+            end
+    end
+end
+
+
+local function updateFog()
+    local fogSettings = getgenv().smothnes["Misc"]["Fog"]
+    if fogSettings.Enabled then
+        Lighting.FogColor = fogSettings.Color
+        Lighting.FogStart = fogSettings.StartDistance
+        Lighting.FogEnd = fogSettings.EndDistance
+    end
+end
+
+local function updateAmbient()
+    local surroundingAmbient = getgenv().smothnes["Misc"]["SurroundingAmbient"]
+    local externalAmbient = getgenv().smothnes["Misc"]["ExternalAmbient"]
+
+    if surroundingAmbient.Enabled then
+        Lighting.Ambient = surroundingAmbient.Color
+    end
+
+    if externalAmbient.Enabled then
+        Lighting.OutdoorAmbient = externalAmbient.Color
+    end
+end
+
+local function toggleSpeedGlitch()
+    SpeedGlitch = not SpeedGlitch
+    if SpeedGlitch then
+    if getgenv().smothnes.Macro.Type == "Third" then
+        repeat
+            task.wait(getgenv().smothnes.Macro.Speed / 100)
+            game:GetService("VirtualInputManager"):SendKeyEvent(true, "I", false, game)
+            task.wait(getgenv().smothnes.Macro.Speed / 100)
+            game:GetService("VirtualInputManager"):SendKeyEvent(true, "O", false, game)
+        until not SpeedGlitch or not getgenv().smothnes.Macro.Enabled
+    elseif getgenv().smothnes.Macro.Type == "First" then
+        repeat
+            task.wait(getgenv().smothnes.Macro.Speed / 100)
+            game:GetService("VirtualInputManager"):SendMouseWheelEvent(0, 0, true, game)
+            task.wait(getgenv().smothnes.Macro.Speed / 100)
+            game:GetService("VirtualInputManager"):SendMouseWheelEvent(0, 0, false, game)
+        until not SpeedGlitch or not getgenv().smothnes.Macro.Enabled
+    end
+    end
+    end
+    
+    Mouse.KeyDown:Connect(function(Key)
+    if not getgenv().smothnes.Macro.Enabled then return end 
+    
+    if string.lower(Key) == string.lower(getgenv().smothnes.Macro.Keybind) then
+    toggleSpeedGlitch()
+    end
+    end)
+
+
+getgenv().Loaded = true -- end of the script
+else
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "Smoothness V2",
+        Text = ".gg/smoothness",
+        Duration = 0.08
+    })
+end
